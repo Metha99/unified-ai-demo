@@ -107,14 +107,13 @@ def create_prompt(query, azure_data, servicenow_data, gitlab_data):
 # Function to send request to OpenAI API and get the response
 def ask_gpt(prompt):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ]
+        # Updated to work with OpenAI's latest API (v1.0.0 and later)
+        response = openai.Completion.create(
+            model="text-davinci-003",  # Use the latest available model
+            prompt=prompt,
+            max_tokens=150
         )
-        return response.choices[0].message['content']
+        return response.choices[0].text.strip()
     except Exception as e:
         return f"Error communicating with OpenAI: {e}"
 

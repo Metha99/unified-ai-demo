@@ -3,7 +3,7 @@ import requests
 import openai
 
 # Hardcoded API Keys and Credentials (For testing purposes)
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = "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"
 
 # Azure credentials
 AZURE_ACCESS_TOKEN = "QxN8Q~y.PalckYVbS5evoch2u3HiPfmhT1LmfbqX"

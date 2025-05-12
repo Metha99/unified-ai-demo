@@ -45,7 +45,7 @@ def get_azure_logs(query):
                 vm_statuses.append(f"VM Name: {vm_name}, Status: {status}")
         return "\n".join(vm_statuses)
     else:
-        return "No Azure VM data found"
+        return f"Error fetching Azure VMs. Status code: {response.status_code}"
 
 # Function to fetch GitLab pipeline status
 def get_pipeline_info(query):
@@ -62,7 +62,7 @@ def get_pipeline_info(query):
         else:
             return "No pipelines found."
     else:
-        return "Error fetching GitLab data."
+        return f"Error fetching GitLab data. Status code: {response.status_code}"
 
 # Function to fetch ServiceNow incidents
 def get_incidents(query):
@@ -82,7 +82,7 @@ def get_incidents(query):
         else:
             return "No incidents found for this query."
     else:
-        return "Error fetching ServiceNow data."
+        return f"Error fetching ServiceNow data. Status code: {response.status_code}"
 
 # Function to create prompt for OpenAI and ask for a response
 def create_prompt(query, azure_data, servicenow_data, gitlab_data):
@@ -107,14 +107,13 @@ def create_prompt(query, azure_data, servicenow_data, gitlab_data):
 # Function to send request to OpenAI API and get the response
 def ask_gpt(prompt):
     try:
-        # Updated OpenAI API call to use openai.ChatCompletion.create for newer versions
-        response = openai.chat.Completion.create(
+        # Updated OpenAI API call to use openai.completions.create for newer versions
+        response = openai.Completion.create(
             model="gpt-3.5-turbo",  # Use the latest available model
-            messages=[{"role": "system", "content": "You are a helpful assistant."},
-                      {"role": "user", "content": prompt}],
+            prompt=prompt,
             max_tokens=150
         )
-        return response.choices[0].message['content'].strip()
+        return response.choices[0].text.strip()
     except Exception as e:
         return f"Error communicating with OpenAI: {e}"
 

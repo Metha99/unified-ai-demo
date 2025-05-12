@@ -1,96 +1,139 @@
 import streamlit as st
-import openai
 import requests
-from requests.auth import HTTPBasicAuth
+import openai
 
-# 🔐 API KEYS AND SECRETS (for demo only)
-OPENAI_API_KEY = "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"
-GITLAB_TOKEN = "glpat-Zg4U5fietyzw2_Y27xtu"
+# Hardcoded API Keys and Credentials (For testing purposes)
+openai.api_key = "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"
+
+# Azure credentials
+AZURE_ACCESS_TOKEN = "QxN8Q~y.PalckYVbS5evoch2u3HiPfmhT1LmfbqX"
+AZURE_SUBSCRIPTION_ID = "unified-ai-demo"  # Your Azure Subscription ID
+AZURE_RESOURCE_GROUP = "unified-ai-prototype"  # Resource group name
+
+# ServiceNow credentials
 SNOW_INSTANCE = "https://dev203611.service-now.com"
 SNOW_USER = "admin"
-SNOW_PASSWORD = "Nachet@123$$$$$$"  # DEMO ONLY
+SNOW_PASSWORD = "Nachet@123$$$$$$"
 
-openai.api_key = OPENAI_API_KEY
+# GitLab credentials
+GITLAB_TOKEN = "glpat-Zg4U5fietyzw2_Y27xtu"
+GITLAB_PROJECT_ID = "12345678"  # Replace with your GitLab project ID
 
-# Streamlit App
-st.set_page_config(page_title="Unified AI", page_icon="🤖")
-st.title("🤖 Unified AI - SRE Assistant")
-st.markdown("Enter a customer-related query to fetch and analyze live system status, incidents, and pipelines.")
+# Set up the Streamlit page config
+st.set_page_config(page_title="Unified AI", layout="centered")
+st.title("🤖 Unified AI: Infra Assistant")
 
-query = st.text_input("Enter Customer Query:")
+# Function to fetch Azure VM status
+def get_azure_logs(query):
+    # Fetch all VMs in the resource group
+    vm_url = f"https://management.azure.com/subscriptions/{AZURE_SUBSCRIPTION_ID}/resourceGroups/{AZURE_RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines?api-version=2021-07-01"
+    headers = {
+        'Authorization': f"Bearer {AZURE_ACCESS_TOKEN}"
+    }
 
-def get_azure_data(customer):
-    # Simulated Azure response based on customer name
-    if "gava" in customer.lower():
-        return "VMs:\n• gava-linux-db1 – Status: Running\n• gava-win-app01 – Status: Degraded (memory leak)"
-    elif "tetra" in customer.lower():
-        return "VMs:\n• tetra-db01 – Status: Critical (Disk Latency High)\n• tetra-frontend – Status: Running"
+    response = requests.get(vm_url, headers=headers)
+    if response.status_code == 200:
+        vm_data = response.json()
+        vm_statuses = []
+        for vm in vm_data['value']:
+            vm_name = vm['name']
+            status_url = f"https://management.azure.com/subscriptions/{AZURE_SUBSCRIPTION_ID}/resourceGroups/{AZURE_RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{vm_name}/instanceView?api-version=2021-07-01"
+            status_response = requests.get(status_url, headers=headers)
+            if status_response.status_code == 200:
+                vm_status = status_response.json()
+                status = vm_status['status']['displayStatus']
+                vm_statuses.append(f"VM Name: {vm_name}, Status: {status}")
+        return "\n".join(vm_statuses)
     else:
-        return "No Azure VMs found for this customer."
+        return "No Azure VM data found"
 
-def get_gitlab_data(customer):
-    headers = {"PRIVATE-TOKEN": GITLAB_TOKEN}
-    if "gava" in customer.lower():
-        try:
-            url = "https://gitlab.com/api/v4/projects/67127345/pipelines"
-            res = requests.get(url, headers=headers)
-            data = res.json()
-            if isinstance(data, list) and len(data) > 0:
-                latest = data[0]
-                return f"Latest Pipeline for Gava:\n• Pipeline ID: {latest['id']} – Status: {latest['status']}"
-            return "No GitLab pipelines found."
-        except Exception as e:
-            return f"GitLab API Error: {e}"
-    return "No relevant GitLab pipelines found."
+# Function to fetch GitLab pipeline status
+def get_pipeline_info(query):
+    gitlab_url = f"https://gitlab.com/api/v4/projects/{GITLAB_PROJECT_ID}/pipelines"
+    headers = {'Private-Token': GITLAB_TOKEN}
 
-def get_snow_data(customer):
+    response = requests.get(gitlab_url, headers=headers)
+    if response.status_code == 200:
+        pipelines = response.json()
+        if pipelines:
+            last_pipeline = pipelines[0]  # Get the most recent pipeline
+            status = last_pipeline['status']
+            return f"GitLab Pipeline Status: {status}"
+        else:
+            return "No pipelines found."
+    else:
+        return "Error fetching GitLab data."
+
+# Function to fetch ServiceNow incidents
+def get_incidents(query):
+    url = f"{SNOW_INSTANCE}/api/now/table/incident?sysparm_query=short_description={query}&sysparm_limit=5"
+    auth = (SNOW_USER, SNOW_PASSWORD)
+
+    response = requests.get(url, auth=auth)
+    if response.status_code == 200:
+        incidents = response.json()['result']
+        if incidents:
+            incident_details = []
+            for incident in incidents:
+                short_description = incident.get('short_description', 'N/A')
+                status = incident.get('state', 'N/A')
+                incident_details.append(f"Incident: {short_description}, Status: {status}")
+            return "\n".join(incident_details)
+        else:
+            return "No incidents found for this query."
+    else:
+        return "Error fetching ServiceNow data."
+
+# Function to create prompt for OpenAI and ask for a response
+def create_prompt(query, azure_data, servicenow_data, gitlab_data):
+    prompt = f"""
+    You are an intelligent assistant analyzing customer infrastructure.
+
+    Customer Query: {query}
+
+    --- Azure Resources ---
+    {azure_data}
+
+    --- ServiceNow Tickets ---
+    {servicenow_data}
+
+    --- GitLab Pipelines ---
+    {gitlab_data}
+
+    Provide a summary and any actionable insights.
+    """
+    return prompt
+
+# Function to send request to OpenAI API and get the response
+def ask_gpt(prompt):
     try:
-        table = "incident"
-        query_url = f"{SNOW_INSTANCE}/api/now/table/{table}?sysparm_query=short_descriptionLIKE{customer}"
-        headers = {"Accept": "application/json"}
-        res = requests.get(query_url, headers=headers, auth=HTTPBasicAuth(SNOW_USER, SNOW_PASSWORD))
-        data = res.json()
-
-        if "result" in data and data["result"]:
-            inc = data["result"][0]
-            return f"ServiceNow Incident:\n• ID: {inc['number']}\n• Short Description: {inc['short_description']}"
-        return "No ServiceNow incidents found for this customer."
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response.choices[0].message['content']
     except Exception as e:
-        return f"ServiceNow API Error: {e}"
+        return f"Error communicating with OpenAI: {e}"
+
+# Get the user query
+query = st.text_input("Enter your customer issue/query:")
 
 if query:
-    with st.spinner("Gathering system data..."):
-        azure_info = get_azure_data(query)
-        gitlab_info = get_gitlab_data(query)
-        snow_info = get_snow_data(query)
+    with st.spinner("Analyzing data sources..."):
+        # Fetch data from Azure, GitLab, and ServiceNow
+        azure = get_azure_logs(query)
+        snow = get_incidents(query)
+        gitlab = get_pipeline_info(query)
 
-        full_context = f"""
-        🔍 Customer Query: {query}
+        # Create the prompt for OpenAI
+        final_prompt = create_prompt(query, azure, snow, gitlab)
 
-        --- Azure Resources ---
-        {azure_info}
+        # Send the prompt to OpenAI and get the response
+        response = ask_gpt(final_prompt)
 
-        --- GitLab Pipelines ---
-        {gitlab_info}
-
-        --- ServiceNow Tickets ---
-        {snow_info}
-        """
-
-        st.markdown("### 🔧 Retrieved Data")
-        st.code(full_context.strip())
-
-        st.markdown("### 🤖 Unified AI Analysis")
-        with st.spinner("AI thinking..."):
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-4",
-                    messages=[
-                        {"role": "system", "content": "You're an SRE assistant that analyzes technical data to help engineers troubleshoot quickly."},
-                        {"role": "user", "content": full_context}
-                    ]
-                )
-                result = response['choices'][0]['message']['content']
-                st.success(result)
-            except Exception as e:
-                st.error(f"OpenAI Error: {e}")
+    # Display the result from OpenAI
+    st.success("Unified AI Response:")
+    st.markdown(response)

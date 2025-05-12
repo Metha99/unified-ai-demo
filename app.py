@@ -2,13 +2,13 @@ import streamlit as st
 import requests
 import openai
 
-# Hardcoded API Keys and Credentials (For testing purposes)
-openai.api_key = "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"
+# Access the OpenAI API key from Streamlit Secrets Management
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Azure credentials
-AZURE_ACCESS_TOKEN = "QxN8Q~y.PalckYVbS5evoch2u3HiPfmhT1LmfbqX"
-AZURE_SUBSCRIPTION_ID = "unified-ai-demo"  # Your Azure Subscription ID
-AZURE_RESOURCE_GROUP = "unified-ai-prototype"  # Resource group name
+AZURE_ACCESS_TOKEN = st.secrets["AZURE_ACCESS_TOKEN"]
+AZURE_SUBSCRIPTION_ID = "unified-ai-demo"
+AZURE_RESOURCE_GROUP = "unified-ai-prototype"
 
 # ServiceNow credentials
 SNOW_INSTANCE = "https://dev203611.service-now.com"
@@ -16,8 +16,8 @@ SNOW_USER = "admin"
 SNOW_PASSWORD = "Nachet@123$$$$$$"
 
 # GitLab credentials
-GITLAB_TOKEN = "glpat-Zg4U5fietyzw2_Y27xtu"
-GITLAB_PROJECT_ID = "12345678"  # Replace with your GitLab project ID
+GITLAB_TOKEN = st.secrets["GITLAB_TOKEN"]
+GITLAB_PROJECT_ID = "12345678"
 
 # Set up the Streamlit page config
 st.set_page_config(page_title="Unified AI", layout="centered")
@@ -27,9 +27,7 @@ st.title("🤖 Unified AI: Infra Assistant")
 def get_azure_logs(query):
     # Fetch all VMs in the resource group
     vm_url = f"https://management.azure.com/subscriptions/{AZURE_SUBSCRIPTION_ID}/resourceGroups/{AZURE_RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines?api-version=2021-07-01"
-    headers = {
-        'Authorization': f"Bearer {AZURE_ACCESS_TOKEN}"
-    }
+    headers = {'Authorization': f"Bearer {AZURE_ACCESS_TOKEN}"}
 
     response = requests.get(vm_url, headers=headers)
     if response.status_code == 200:
@@ -110,9 +108,7 @@ def ask_gpt(prompt):
         # Correct OpenAI API call using openai.chat.completions.create
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",  # Use the latest available model
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
             max_tokens=150
         )
         return response.choices[0].message.content.strip()

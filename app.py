@@ -3,7 +3,7 @@ import requests
 import openai
 
 # Hardcoded API Keys and Credentials (For testing purposes)
-openai.api_key = "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"
+openai.api_key = "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"
 
 # Azure credentials
 AZURE_ACCESS_TOKEN = "QxN8Q~y.PalckYVbS5evoch2u3HiPfmhT1LmfbqX"

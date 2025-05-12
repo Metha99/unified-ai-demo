@@ -107,7 +107,7 @@ def create_prompt(query, azure_data, servicenow_data, gitlab_data):
 # Function to send request to OpenAI API and get the response
 def ask_gpt(prompt):
     try:
-        # Updated OpenAI API call to use openai.completions.create for newer versions
+        # Correct OpenAI API call using openai.completions.create
         response = openai.Completion.create(
             model="gpt-3.5-turbo",  # Use the latest available model
             prompt=prompt,
